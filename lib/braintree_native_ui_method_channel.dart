@@ -40,19 +40,30 @@ class MethodChannelBraintreeNativeUi extends BraintreeNativeUiPlatform {
     required String authorization,
     required String nonce,
     required String amount,
+    String? email,
+    Map<String, String>? billingAddress,
   }) async {
     final verifiedNonce = await methodChannel.invokeMethod<String>(
       'performThreeDSecure',
-      {'authorization': authorization, 'nonce': nonce, 'amount': amount},
+      {
+        'authorization': authorization,
+        'nonce': nonce,
+        'amount': amount,
+        'email': email,
+        'billingAddress': billingAddress,
+      },
     );
     return verifiedNonce;
   }
 
   @override
-  Future<String?> collectDeviceData({required String authorization}) async {
+  Future<String?> collectDeviceData({
+    required String authorization,
+    bool forCard = false,
+  }) async {
     final deviceData = await methodChannel.invokeMethod<String>(
       'collectDeviceData',
-      {'authorization': authorization},
+      {'authorization': authorization, 'forCard': forCard},
     );
     return deviceData;
   }

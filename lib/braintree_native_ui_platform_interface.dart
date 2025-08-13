@@ -41,11 +41,16 @@ abstract class BraintreeNativeUiPlatform extends PlatformInterface {
     required String authorization,
     required String nonce,
     required String amount,
+    String? email,
+    Map<String, String>? billingAddress,
   }) {
     throw UnimplementedError('performThreeDSecure() has not been implemented.');
   }
 
-  Future<String?> collectDeviceData({required String authorization}) {
+  Future<String?> collectDeviceData({
+    required String authorization,
+    bool forCard = false,
+  }) {
     throw UnimplementedError('collectDeviceData() has not been implemented.');
   }
 

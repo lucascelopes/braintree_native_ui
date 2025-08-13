@@ -24,10 +24,15 @@ class MockBraintreeNativeUiPlatform
     required String authorization,
     required String nonce,
     required String amount,
+    String? email,
+    Map<String, String>? billingAddress,
   }) => Future.value('verified-nonce');
 
   @override
-  Future<String?> collectDeviceData({required String authorization}) =>
+  Future<String?> collectDeviceData({
+    required String authorization,
+    bool forCard = false,
+  }) =>
       Future.value('device-data');
 
   @override

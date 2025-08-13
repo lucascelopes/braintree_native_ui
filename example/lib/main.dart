@@ -35,6 +35,7 @@ class _MyAppState extends State<MyApp> {
     try {
       final data = await _braintree.collectDeviceData(
         authorization: '<YOUR_TOKENIZATION_KEY>',
+        forCard: true,
       );
       setState(() => _output = 'Device data: $data');
     } catch (e) {
