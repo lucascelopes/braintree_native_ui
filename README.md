@@ -12,6 +12,7 @@ contra fraudes sem utilizar o componente Drop-in.
 - Coleta de dados do dispositivo
 - API simples em Dart utilizando *Method Channels*
 - Pagamentos via Google Pay e Apple Pay
+- Preparado para integração com Google Pay e Apple Pay
 
 ## Instalação
 
@@ -80,6 +81,13 @@ final googlePayNonce = await braintree.requestGooglePayPayment(
   authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
   amount: '10.00',
   currencyCode: 'USD',
+Suporte a Google Pay está em desenvolvimento. A integração prevista será:
+
+```dart
+final googlePayNonce = await braintree.requestGooglePay(
+  authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
+  amount: '10.00',
+
 );
 ```
 
@@ -93,6 +101,11 @@ final applePayNonce = await braintree.requestApplePayPayment(
   merchantIdentifier: 'merchant.com.exemplo',
   countryCode: 'US',
   currencyCode: 'USD',
+De forma similar, o Apple Pay terá uma API dedicada:
+```dart
+final applePayNonce = await braintree.requestApplePay(
+  authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
+  merchantId: 'merchant.com.exemplo',
   amount: '10.00',
 );
 ```
