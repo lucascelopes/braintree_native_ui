@@ -11,6 +11,7 @@ contra fraudes sem utilizar o componente Drop-in.
 - Verificação 3‑D Secure 2
 - Coleta de dados do dispositivo
 - API simples em Dart utilizando *Method Channels*
+- Preparado para integração com Google Pay e Apple Pay
 
 ## Instalação
 
@@ -18,7 +19,7 @@ Adicione ao seu `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  braintree_native_ui: ^0.1.0
+  braintree_native_ui: ^0.1.1
 ```
 
 No iOS execute `pod install` após atualizar as dependências.
@@ -44,6 +45,52 @@ final verifiedNonce = await braintree.performThreeDSecure(
 
 final deviceData = await braintree.collectDeviceData(
   authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
+);
+```
+
+### Capturando dados com TextFields
+
+```dart
+final numberController = TextEditingController();
+final expMonthController = TextEditingController();
+final expYearController = TextEditingController();
+final cvvController = TextEditingController();
+
+// Campos de entrada personalizados
+TextField(controller: numberController);
+TextField(controller: expMonthController);
+TextField(controller: expYearController);
+TextField(controller: cvvController);
+
+final nonce = await braintree.tokenizeCard(
+  authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
+  number: numberController.text,
+  expirationMonth: expMonthController.text,
+  expirationYear: expYearController.text,
+  cvv: cvvController.text,
+);
+```
+
+## Google Pay
+
+Suporte a Google Pay está em desenvolvimento. A integração prevista será:
+
+```dart
+final googlePayNonce = await braintree.requestGooglePay(
+  authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
+  amount: '10.00',
+);
+```
+
+## Apple Pay
+
+De forma similar, o Apple Pay terá uma API dedicada:
+
+```dart
+final applePayNonce = await braintree.requestApplePay(
+  authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
+  merchantId: 'merchant.com.exemplo',
+  amount: '10.00',
 );
 ```
 
