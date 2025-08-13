@@ -12,7 +12,18 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       channel,
       (MethodCall methodCall) async {
-        return '42';
+        switch (methodCall.method) {
+          case 'getPlatformVersion':
+            return '42';
+          case 'tokenizeCard':
+            return 'fake-nonce';
+          case 'performThreeDSecure':
+            return 'verified-nonce';
+          case 'collectDeviceData':
+            return 'device-data';
+          default:
+            return null;
+        }
       },
     );
   });
@@ -23,5 +34,29 @@ void main() {
 
   test('getPlatformVersion', () async {
     expect(await platform.getPlatformVersion(), '42');
+  });
+
+  test('tokenizeCard', () async {
+    final nonce = await platform.tokenizeCard(
+      authorization: 'auth',
+      number: '4111111111111111',
+      expirationMonth: '12',
+      expirationYear: '2030',
+    );
+    expect(nonce, 'fake-nonce');
+  });
+
+  test('performThreeDSecure', () async {
+    final verifiedNonce = await platform.performThreeDSecure(
+      authorization: 'auth',
+      nonce: 'fake-nonce',
+      amount: '10.00',
+    );
+    expect(verifiedNonce, 'verified-nonce');
+  });
+
+  test('collectDeviceData', () async {
+    final data = await platform.collectDeviceData(authorization: 'auth');
+    expect(data, 'device-data');
   });
 }

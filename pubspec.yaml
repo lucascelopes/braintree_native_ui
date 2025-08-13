@@ -23,7 +23,7 @@ flutter:
   plugin:
     platforms:
       android:
-        package: com.nagazakisoftware.braintree_custom_ui
-        pluginClass: BraintreeCustomUiPlugin
+        package: com.nagazakisoftware.braintree_native_ui
+        pluginClass: BraintreeNativeUiPlugin
       ios:
-        pluginClass: BraintreeCustomUiPlugin
+        pluginClass: BraintreeNativeUiPlugin

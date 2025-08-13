@@ -4,14 +4,15 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'braintree_native_ui'
-  s.version          = '0.0.1'
-  s.summary          = 'A new Flutter plugin project.'
+  s.version          = '0.1.0'
+  s.summary          = 'Braintree SDK integration with custom UI and 3DS2.'
   s.description      = <<-DESC
-A new Flutter plugin project.
+Tokenize cards, perform 3D Secure verification and collect device data using
+the official Braintree iOS SDK without relying on Drop-in UI.
                        DESC
-  s.homepage         = 'http://example.com'
+  s.homepage         = 'https://github.com/lucascelopes/braintree_native_ui'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
+  s.author           = { 'braintree_native_ui contributors' => 'support@example.com' }
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'

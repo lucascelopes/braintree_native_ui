@@ -48,6 +48,10 @@ android {
     }
 
     dependencies {
+        implementation("com.braintreepayments.api:card:5.14.0")
+        implementation("com.braintreepayments.api:three-d-secure:5.14.0")
+        implementation("com.braintreepayments.api:data-collector:5.14.0")
+
         testImplementation("org.jetbrains.kotlin:kotlin-test")
         testImplementation("org.mockito:mockito-core:5.0.0")
     }
