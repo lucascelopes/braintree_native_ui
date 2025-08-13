@@ -1,15 +1,62 @@
 # braintree_native_ui
 
-A new Flutter plugin project.
+Plugin Flutter que integra o SDK oficial da Braintree para permitir a
+implementação de fluxos de pagamento com UI própria. Ele tokeniza cartões,
+executa verificações 3‑D Secure (3DS2) e coleta *device data* para prevenção
+contra fraudes sem utilizar o componente Drop-in.
 
-## Getting Started
+## Recursos
 
-This project is a starting point for a Flutter
-[plug-in package](https://flutter.dev/to/develop-plugins),
-a specialized package that includes platform-specific implementation code for
-Android and/or iOS.
+- Tokenização de cartão de crédito
+- Verificação 3‑D Secure 2
+- Coleta de dados do dispositivo
+- API simples em Dart utilizando *Method Channels*
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Instalação
 
+Adicione ao seu `pubspec.yaml`:
+
+```yaml
+dependencies:
+  braintree_native_ui: ^0.1.0
+```
+
+No iOS execute `pod install` após atualizar as dependências.
+
+## Uso
+
+```dart
+final braintree = BraintreeNativeUi();
+
+final nonce = await braintree.tokenizeCard(
+  authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
+  number: '4111111111111111',
+  expirationMonth: '12',
+  expirationYear: '2030',
+  cvv: '123',
+);
+
+final verifiedNonce = await braintree.performThreeDSecure(
+  authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
+  nonce: nonce!,
+  amount: '10.00',
+);
+
+final deviceData = await braintree.collectDeviceData(
+  authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
+);
+```
+
+Veja o diretório [`example/`](example) para um aplicativo completo.
+
+## Desenvolvimento
+
+Execute os testes com:
+
+```bash
+flutter test
+```
+
+## Licença
+
+Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.

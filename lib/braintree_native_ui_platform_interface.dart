@@ -26,4 +26,26 @@ abstract class BraintreeNativeUiPlatform extends PlatformInterface {
   Future<String?> getPlatformVersion() {
     throw UnimplementedError('platformVersion() has not been implemented.');
   }
+
+  Future<String?> tokenizeCard({
+    required String authorization,
+    required String number,
+    required String expirationMonth,
+    required String expirationYear,
+    String? cvv,
+  }) {
+    throw UnimplementedError('tokenizeCard() has not been implemented.');
+  }
+
+  Future<String?> performThreeDSecure({
+    required String authorization,
+    required String nonce,
+    required String amount,
+  }) {
+    throw UnimplementedError('performThreeDSecure() has not been implemented.');
+  }
+
+  Future<String?> collectDeviceData({required String authorization}) {
+    throw UnimplementedError('collectDeviceData() has not been implemented.');
+  }
 }

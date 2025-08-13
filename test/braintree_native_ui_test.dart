@@ -10,6 +10,28 @@ class MockBraintreeNativeUiPlatform
 
   @override
   Future<String?> getPlatformVersion() => Future.value('42');
+
+  @override
+  Future<String?> tokenizeCard({
+    required String authorization,
+    required String number,
+    required String expirationMonth,
+    required String expirationYear,
+    String? cvv,
+  }) =>
+      Future.value('fake-nonce');
+
+  @override
+  Future<String?> performThreeDSecure({
+    required String authorization,
+    required String nonce,
+    required String amount,
+  }) =>
+      Future.value('verified-nonce');
+
+  @override
+  Future<String?> collectDeviceData({required String authorization}) =>
+      Future.value('device-data');
 }
 
 void main() {
@@ -25,5 +47,47 @@ void main() {
     BraintreeNativeUiPlatform.instance = fakePlatform;
 
     expect(await braintreeNativeUiPlugin.getPlatformVersion(), '42');
+  });
+
+  test('tokenizeCard delegates to platform', () async {
+    final plugin = BraintreeNativeUi();
+    final fakePlatform = MockBraintreeNativeUiPlatform();
+    BraintreeNativeUiPlatform.instance = fakePlatform;
+
+    expect(
+      await plugin.tokenizeCard(
+        authorization: 'auth',
+        number: '4111111111111111',
+        expirationMonth: '12',
+        expirationYear: '2030',
+      ),
+      'fake-nonce',
+    );
+  });
+
+  test('performThreeDSecure delegates to platform', () async {
+    final plugin = BraintreeNativeUi();
+    final fakePlatform = MockBraintreeNativeUiPlatform();
+    BraintreeNativeUiPlatform.instance = fakePlatform;
+
+    expect(
+      await plugin.performThreeDSecure(
+        authorization: 'auth',
+        nonce: 'fake-nonce',
+        amount: '10.00',
+      ),
+      'verified-nonce',
+    );
+  });
+
+  test('collectDeviceData delegates to platform', () async {
+    final plugin = BraintreeNativeUi();
+    final fakePlatform = MockBraintreeNativeUiPlatform();
+    BraintreeNativeUiPlatform.instance = fakePlatform;
+
+    expect(
+      await plugin.collectDeviceData(authorization: 'auth'),
+      'device-data',
+    );
   });
 }
