@@ -48,4 +48,26 @@ abstract class BraintreeNativeUiPlatform extends PlatformInterface {
   Future<String?> collectDeviceData({required String authorization}) {
     throw UnimplementedError('collectDeviceData() has not been implemented.');
   }
+
+  Future<String?> requestGooglePayPayment({
+    required String authorization,
+    required String amount,
+    required String currencyCode,
+  }) {
+    throw UnimplementedError(
+      'requestGooglePayPayment() has not been implemented.',
+    );
+  }
+
+  Future<String?> requestApplePayPayment({
+    required String authorization,
+    required String merchantIdentifier,
+    required String countryCode,
+    required String currencyCode,
+    required String amount,
+  }) {
+    throw UnimplementedError(
+      'requestApplePayPayment() has not been implemented.',
+    );
+  }
 }

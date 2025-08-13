@@ -1,4 +1,3 @@
-
 import 'braintree_native_ui_platform_interface.dart';
 
 /// Dart facade for the Braintree native SDKs.
@@ -51,6 +50,36 @@ class BraintreeNativeUi {
   Future<String?> collectDeviceData({required String authorization}) {
     return BraintreeNativeUiPlatform.instance.collectDeviceData(
       authorization: authorization,
+    );
+  }
+
+  /// Launches Google Pay and returns the payment method nonce.
+  Future<String?> requestGooglePayPayment({
+    required String authorization,
+    required String amount,
+    required String currencyCode,
+  }) {
+    return BraintreeNativeUiPlatform.instance.requestGooglePayPayment(
+      authorization: authorization,
+      amount: amount,
+      currencyCode: currencyCode,
+    );
+  }
+
+  /// Launches Apple Pay and returns the payment method nonce.
+  Future<String?> requestApplePayPayment({
+    required String authorization,
+    required String merchantIdentifier,
+    required String countryCode,
+    required String currencyCode,
+    required String amount,
+  }) {
+    return BraintreeNativeUiPlatform.instance.requestApplePayPayment(
+      authorization: authorization,
+      merchantIdentifier: merchantIdentifier,
+      countryCode: countryCode,
+      currencyCode: currencyCode,
+      amount: amount,
     );
   }
 }
