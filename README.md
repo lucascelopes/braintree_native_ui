@@ -60,3 +60,8 @@ flutter test
 ## Licença
 
 Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
+
+## Sobre
+
+Um plugin brasileiro.
+Lucas César Lopes
