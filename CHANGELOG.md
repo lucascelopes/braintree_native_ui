@@ -1,3 +1,6 @@
+## 0.2.1
+- Correções IOS 13+.
+
 ## 0.2.0
 - Integrações de pagamento via Google Pay e Apple Pay.
 
