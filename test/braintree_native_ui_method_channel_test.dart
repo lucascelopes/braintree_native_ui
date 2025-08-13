@@ -9,27 +9,30 @@ void main() {
   const MethodChannel channel = MethodChannel('braintree_native_ui');
 
   setUp(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      (MethodCall methodCall) async {
-        switch (methodCall.method) {
-          case 'getPlatformVersion':
-            return '42';
-          case 'tokenizeCard':
-            return 'fake-nonce';
-          case 'performThreeDSecure':
-            return 'verified-nonce';
-          case 'collectDeviceData':
-            return 'device-data';
-          default:
-            return null;
-        }
-      },
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+          switch (methodCall.method) {
+            case 'getPlatformVersion':
+              return '42';
+            case 'tokenizeCard':
+              return 'fake-nonce';
+            case 'performThreeDSecure':
+              return 'verified-nonce';
+            case 'collectDeviceData':
+              return 'device-data';
+            case 'requestGooglePayPayment':
+              return 'google-nonce';
+            case 'requestApplePayPayment':
+              return 'apple-nonce';
+            default:
+              return null;
+          }
+        });
   });
 
   tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
   });
 
   test('getPlatformVersion', () async {
@@ -58,5 +61,25 @@ void main() {
   test('collectDeviceData', () async {
     final data = await platform.collectDeviceData(authorization: 'auth');
     expect(data, 'device-data');
+  });
+
+  test('requestGooglePayPayment', () async {
+    final nonce = await platform.requestGooglePayPayment(
+      authorization: 'auth',
+      amount: '10.00',
+      currencyCode: 'USD',
+    );
+    expect(nonce, 'google-nonce');
+  });
+
+  test('requestApplePayPayment', () async {
+    final nonce = await platform.requestApplePayPayment(
+      authorization: 'auth',
+      merchantIdentifier: 'merchant.test',
+      countryCode: 'US',
+      currencyCode: 'USD',
+      amount: '10.00',
+    );
+    expect(nonce, 'apple-nonce');
   });
 }

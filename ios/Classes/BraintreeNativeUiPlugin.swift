@@ -4,6 +4,8 @@ import BraintreeCore
 import BraintreeCard
 import BraintreeThreeDSecure
 import BraintreeDataCollector
+import BraintreeApplePay
+import PassKit
 
 public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
   public static func register(with registrar: FlutterPluginRegistrar) {
@@ -22,6 +24,8 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       threeDSecure(call: call, result: result)
     case "collectDeviceData":
       collectDeviceData(call: call, result: result)
+    case "requestApplePayPayment":
+      applePay(call: call, result: result)
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -104,5 +108,73 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     collector.collectDeviceData { deviceData, _ in
       result(deviceData)
     }
+  }
+
+  private var applePayDelegate: ApplePayDelegate?
+
+  private func applePay(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard
+      let args = call.arguments as? [String: Any],
+      let authorization = args["authorization"] as? String,
+      let merchantId = args["merchantIdentifier"] as? String,
+      let countryCode = args["countryCode"] as? String,
+      let currencyCode = args["currencyCode"] as? String,
+      let amount = args["amount"] as? String,
+      let viewController = UIApplication.shared.keyWindow?.rootViewController
+    else {
+      result(FlutterError(code: "arg_error", message: "Missing parameters", details: nil))
+      return
+    }
+
+    guard let apiClient = BTAPIClient(authorization: authorization) else {
+      result(FlutterError(code: "auth_error", message: "Invalid authorization", details: nil))
+      return
+    }
+
+    let applePayClient = BTApplePayClient(apiClient: apiClient)
+    let paymentRequest = PKPaymentRequest()
+    paymentRequest.merchantIdentifier = merchantId
+    paymentRequest.countryCode = countryCode
+    paymentRequest.currencyCode = currencyCode
+    paymentRequest.merchantCapabilities = .capability3DS
+    paymentRequest.supportedNetworks = [.visa, .masterCard, .amex, .discover]
+    paymentRequest.paymentSummaryItems = [
+      PKPaymentSummaryItem(label: "Total", amount: NSDecimalNumber(string: amount))
+    ]
+
+    guard let controller = PKPaymentAuthorizationViewController(paymentRequest: paymentRequest) else {
+      result(FlutterError(code: "apple_pay_unavailable", message: "Apple Pay not available", details: nil))
+      return
+    }
+
+    applePayDelegate = ApplePayDelegate(client: applePayClient, completion: result)
+    controller.delegate = applePayDelegate
+    viewController.present(controller, animated: true, completion: nil)
+  }
+}
+
+class ApplePayDelegate: NSObject, PKPaymentAuthorizationViewControllerDelegate {
+  let client: BTApplePayClient
+  let completion: FlutterResult
+
+  init(client: BTApplePayClient, completion: @escaping FlutterResult) {
+    self.client = client
+    self.completion = completion
+  }
+
+  func paymentAuthorizationViewController(_ controller: PKPaymentAuthorizationViewController, didAuthorizePayment payment: PKPayment, handler completionHandler: @escaping (PKPaymentAuthorizationResult) -> Void) {
+    client.tokenize(payment) { nonce, error in
+      if let error = error {
+        completionHandler(PKPaymentAuthorizationResult(status: .failure, errors: [error]))
+        self.completion(FlutterError(code: "apple_pay_error", message: error.localizedDescription, details: nil))
+      } else {
+        completionHandler(PKPaymentAuthorizationResult(status: .success, errors: nil))
+        self.completion(nonce?.nonce)
+      }
+    }
+  }
+
+  func paymentAuthorizationViewControllerDidFinish(_ controller: PKPaymentAuthorizationViewController) {
+    controller.dismiss(animated: true, completion: nil)
   }
 }

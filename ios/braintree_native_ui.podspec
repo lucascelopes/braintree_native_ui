@@ -22,9 +22,10 @@ the official Braintree iOS SDK without relying on Drop-in UI.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
   s.swift_version = '5.0'
 
-  s.dependency 'Braintree/Card'
+s.dependency 'Braintree/Card'
 s.dependency 'Braintree/ThreeDSecure'
 s.dependency 'Braintree/DataCollector'
+s.dependency 'Braintree/ApplePay'
 
 
   # If your plugin requires a privacy manifest, for example if it uses any

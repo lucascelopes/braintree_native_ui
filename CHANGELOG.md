@@ -1,3 +1,6 @@
+## 0.2.0
+- Integrações de pagamento via Google Pay e Apple Pay.
+
 ## 0.1.1
 - Adicionada dependência `plugin_platform_interface`.
 - Exemplos de uso com `TextField`.
