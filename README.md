@@ -82,12 +82,10 @@ final googlePayNonce = await braintree.requestGooglePayPayment(
   amount: '10.00',
   currencyCode: 'USD',
 Suporte a Google Pay está em desenvolvimento. A integração prevista será:
-
 ```dart
 final googlePayNonce = await braintree.requestGooglePay(
   authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
   amount: '10.00',
-
 );
 ```
 
@@ -101,6 +99,7 @@ final applePayNonce = await braintree.requestApplePayPayment(
   merchantIdentifier: 'merchant.com.exemplo',
   countryCode: 'US',
   currencyCode: 'USD',
+
 De forma similar, o Apple Pay terá uma API dedicada:
 ```dart
 final applePayNonce = await braintree.requestApplePay(
