@@ -4,7 +4,8 @@ version: 0.2.0
 repository: https://github.com/lucascelopes/braintree_native_ui
 issue_tracker: https://github.com/lucascelopes/braintree_native_ui/issues
 homepage: https://github.com/lucascelopes/braintree_native_ui
-topics: [braintree, payments, 3ds, card, native, braintree native payment]
+topics: [braintree, payments, three-d-secure, card, native]
+
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
