@@ -7,6 +7,8 @@ import com.braintreepayments.api.BraintreeClient
 import com.braintreepayments.api.Card
 import com.braintreepayments.api.CardClient
 import com.braintreepayments.api.DataCollector
+import com.braintreepayments.api.GooglePayClient
+import com.braintreepayments.api.GooglePayRequest
 import com.braintreepayments.api.ThreeDSecureClient
 import com.braintreepayments.api.ThreeDSecureRequest
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -56,6 +58,7 @@ class BraintreeNativeUiPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
       "tokenizeCard" -> tokenize(call, result)
       "performThreeDSecure" -> threeDSecure(call, result)
       "collectDeviceData" -> collectDeviceData(call, result)
+      "requestGooglePayPayment" -> googlePay(call, result)
       else -> result.notImplemented()
     }
   }
@@ -130,6 +133,30 @@ class BraintreeNativeUiPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
         result.error("collector_error", error.message, null)
       } else {
         result.success(deviceData)
+      }
+    }
+  }
+
+  private fun googlePay(call: MethodCall, result: MethodChannel.Result) {
+    val authorization = call.argument<String>("authorization")
+    val amount = call.argument<String>("amount")
+    val currencyCode = call.argument<String>("currencyCode")
+    val activity = activity
+    if (authorization == null || amount == null || currencyCode == null || activity == null) {
+      result.error("arg_error", "Missing parameters", null)
+      return
+    }
+
+    val btClient = BraintreeClient(activity, authorization)
+    val googlePayClient = GooglePayClient(btClient)
+    val request = GooglePayRequest()
+    request.totalPrice = amount
+    request.currencyCode = currencyCode
+    googlePayClient.requestPayment(activity, request) { nonce, error ->
+      if (error != null) {
+        result.error("google_pay_error", error.message, null)
+      } else {
+        result.success(nonce?.string)
       }
     }
   }

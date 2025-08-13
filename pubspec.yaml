@@ -1,6 +1,6 @@
 name: braintree_native_ui
 description: Plugin nativo para tokenizar cartão, rodar 3DS2 e coletar device data com Braintree usando UI própria.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/lucascelopes/braintree_native_ui
 issue_tracker: https://github.com/lucascelopes/braintree_native_ui/issues
 homepage: https://github.com/lucascelopes/braintree_native_ui
@@ -13,6 +13,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  plugin_platform_interface: ^2.1.8
 
 dev_dependencies:
   flutter_lints: ^4.0.0

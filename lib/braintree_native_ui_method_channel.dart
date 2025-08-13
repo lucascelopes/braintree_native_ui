@@ -11,7 +11,9 @@ class MethodChannelBraintreeNativeUi extends BraintreeNativeUiPlatform {
 
   @override
   Future<String?> getPlatformVersion() async {
-    final version = await methodChannel.invokeMethod<String>('getPlatformVersion');
+    final version = await methodChannel.invokeMethod<String>(
+      'getPlatformVersion',
+    );
     return version;
   }
 
@@ -39,12 +41,10 @@ class MethodChannelBraintreeNativeUi extends BraintreeNativeUiPlatform {
     required String nonce,
     required String amount,
   }) async {
-    final verifiedNonce =
-        await methodChannel.invokeMethod<String>('performThreeDSecure', {
-      'authorization': authorization,
-      'nonce': nonce,
-      'amount': amount,
-    });
+    final verifiedNonce = await methodChannel.invokeMethod<String>(
+      'performThreeDSecure',
+      {'authorization': authorization, 'nonce': nonce, 'amount': amount},
+    );
     return verifiedNonce;
   }
 
@@ -52,10 +52,38 @@ class MethodChannelBraintreeNativeUi extends BraintreeNativeUiPlatform {
   Future<String?> collectDeviceData({required String authorization}) async {
     final deviceData = await methodChannel.invokeMethod<String>(
       'collectDeviceData',
-      {
-        'authorization': authorization,
-      },
+      {'authorization': authorization},
     );
     return deviceData;
+  }
+
+  @override
+  Future<String?> requestGooglePayPayment({
+    required String authorization,
+    required String amount,
+    required String currencyCode,
+  }) async {
+    return await methodChannel.invokeMethod<String>('requestGooglePayPayment', {
+      'authorization': authorization,
+      'amount': amount,
+      'currencyCode': currencyCode,
+    });
+  }
+
+  @override
+  Future<String?> requestApplePayPayment({
+    required String authorization,
+    required String merchantIdentifier,
+    required String countryCode,
+    required String currencyCode,
+    required String amount,
+  }) async {
+    return await methodChannel.invokeMethod<String>('requestApplePayPayment', {
+      'authorization': authorization,
+      'merchantIdentifier': merchantIdentifier,
+      'countryCode': countryCode,
+      'currencyCode': currencyCode,
+      'amount': amount,
+    });
   }
 }
