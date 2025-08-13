@@ -38,18 +38,26 @@ class BraintreeNativeUi {
     required String authorization,
     required String nonce,
     required String amount,
+    String? email,
+    Map<String, String>? billingAddress,
   }) {
     return BraintreeNativeUiPlatform.instance.performThreeDSecure(
       authorization: authorization,
       nonce: nonce,
       amount: amount,
+      email: email,
+      billingAddress: billingAddress,
     );
   }
 
   /// Collects device data used for fraud protection.
-  Future<String?> collectDeviceData({required String authorization}) {
+  Future<String?> collectDeviceData({
+    required String authorization,
+    bool forCard = false,
+  }) {
     return BraintreeNativeUiPlatform.instance.collectDeviceData(
       authorization: authorization,
+      forCard: forCard,
     );
   }
 

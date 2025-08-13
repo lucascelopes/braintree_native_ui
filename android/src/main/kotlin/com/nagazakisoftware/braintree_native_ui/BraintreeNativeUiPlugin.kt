@@ -11,6 +11,8 @@ import com.braintreepayments.api.GooglePayClient
 import com.braintreepayments.api.GooglePayRequest
 import com.braintreepayments.api.ThreeDSecureClient
 import com.braintreepayments.api.ThreeDSecureRequest
+import com.braintreepayments.api.ThreeDSecurePostalAddress
+import com.braintreepayments.api.UserCanceledException
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -96,6 +98,8 @@ class BraintreeNativeUiPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
     val authorization = call.argument<String>("authorization")
     val nonce = call.argument<String>("nonce")
     val amount = call.argument<String>("amount")
+    val email = call.argument<String>("email")
+    val billing = call.argument<Map<String, String>>("billingAddress")
 
     val activity = activity
     if (authorization == null || nonce == null || amount == null || activity == null) {
@@ -107,11 +111,28 @@ class BraintreeNativeUiPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
     val request = ThreeDSecureRequest()
     request.nonce = nonce
     request.amount = amount
+    if (email != null) {
+      request.email = email
+    }
+    if (billing != null) {
+      val address = ThreeDSecurePostalAddress()
+      address.streetAddress = billing["streetAddress"]
+      address.extendedAddress = billing["extendedAddress"]
+      address.locality = billing["locality"]
+      address.region = billing["region"]
+      address.postalCode = billing["postalCode"]
+      address.countryCodeAlpha2 = billing["countryCodeAlpha2"]
+      request.billingAddress = address
+    }
 
     val threeDSClient = ThreeDSecureClient(btClient)
     threeDSClient.performVerification(activity, request) { threeDSResult, error ->
       if (error != null) {
-        result.error("3ds_error", error.message, null)
+        if (error is UserCanceledException) {
+          result.error("3ds_canceled", "User canceled 3DS authentication", null)
+        } else {
+          result.error("3ds_error", error.message, null)
+        }
       } else {
         result.success(threeDSResult?.tokenizedCard?.nonce)
       }
@@ -121,6 +142,7 @@ class BraintreeNativeUiPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
   private fun collectDeviceData(call: MethodCall, result: MethodChannel.Result) {
     val authorization = call.argument<String>("authorization")
     val activity = activity
+    val forCard = call.argument<Boolean>("forCard") ?: false
     if (authorization == null || activity == null) {
       result.error("arg_error", "Missing parameters", null)
       return
@@ -128,12 +150,17 @@ class BraintreeNativeUiPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, 
 
     val btClient = BraintreeClient(activity, authorization)
     val collector = DataCollector(btClient)
-    collector.collectDeviceData(activity) { deviceData, error ->
+    val callback = { deviceData: String?, error: Exception? ->
       if (error != null) {
         result.error("collector_error", error.message, null)
       } else {
         result.success(deviceData)
       }
+    }
+    if (forCard) {
+      collector.collectCardFraudData(activity, callback)
+    } else {
+      collector.collectDeviceData(activity, callback)
     }
   }
 

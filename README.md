@@ -42,10 +42,19 @@ final verifiedNonce = await braintree.performThreeDSecure(
   authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
   nonce: nonce!,
   amount: '10.00',
+  email: 'user@example.com',
+  billingAddress: {
+    'streetAddress': 'Rua 1',
+    'locality': 'Sao Paulo',
+    'region': 'SP',
+    'postalCode': '01000-000',
+    'countryCodeAlpha2': 'BR',
+  },
 );
 
 final deviceData = await braintree.collectDeviceData(
   authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
+  forCard: true,
 );
 ```
 
@@ -81,13 +90,10 @@ final googlePayNonce = await braintree.requestGooglePayPayment(
   authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
   amount: '10.00',
   currencyCode: 'USD',
-Suporte a Google Pay está em desenvolvimento. A integração prevista será:
-```dart
-final googlePayNonce = await braintree.requestGooglePay(
-  authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
-  amount: '10.00',
 );
 ```
+
+Configure o `gatewayMerchantId` e o ambiente (`TEST` ou `PRODUCTION`) conforme a documentação do Google Pay antes de enviar para produção.
 
 ## Apple Pay
 
@@ -99,15 +105,11 @@ final applePayNonce = await braintree.requestApplePayPayment(
   merchantIdentifier: 'merchant.com.exemplo',
   countryCode: 'US',
   currencyCode: 'USD',
-
-De forma similar, o Apple Pay terá uma API dedicada:
-```dart
-final applePayNonce = await braintree.requestApplePay(
-  authorization: '<TOKENIZATION_KEY_OR_CLIENT_TOKEN>',
-  merchantId: 'merchant.com.exemplo',
   amount: '10.00',
 );
 ```
+
+Certifique-se de registrar o `merchantIdentifier` e definir o ambiente apropriado (`sandbox` ou produção) no Apple Developer.
 
 Veja o diretório [`example/`](example) para um aplicativo completo.
 

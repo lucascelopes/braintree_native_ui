@@ -31,6 +31,17 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
   }
 
+  private func rootViewController() -> UIViewController? {
+    if #available(iOS 13.0, *) {
+      return UIApplication.shared.connectedScenes
+        .compactMap { $0 as? UIWindowScene }
+        .flatMap { $0.windows }
+        .first { $0.isKeyWindow }?.rootViewController
+    } else {
+      return UIApplication.shared.keyWindow?.rootViewController
+    }
+  }
+
   private func tokenize(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
       let args = call.arguments as? [String: Any],
@@ -65,7 +76,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       let authorization = args["authorization"] as? String,
       let nonce = args["nonce"] as? String,
       let amount = args["amount"] as? String,
-      let viewController = UIApplication.shared.keyWindow?.rootViewController
+      let viewController = rootViewController()
     else {
       result(FlutterError(code: "arg_error", message: "Missing parameters", details: nil))
       return
@@ -79,11 +90,29 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     let request = BTThreeDSecureRequest()
     request.nonce = nonce
     request.amount = NSDecimalNumber(string: amount)
+    if let email = args["email"] as? String {
+      request.email = email
+    }
+    if let billing = args["billingAddress"] as? [String: String] {
+      let address = BTThreeDSecurePostalAddress()
+      address.streetAddress = billing["streetAddress"]
+      address.extendedAddress = billing["extendedAddress"]
+      address.locality = billing["locality"]
+      address.region = billing["region"]
+      address.postalCode = billing["postalCode"]
+      address.countryCodeAlpha2 = billing["countryCodeAlpha2"]
+      request.billingAddress = address
+    }
 
     let driver = BTThreeDSecureDriver(apiClient: apiClient, delegate: nil)
     driver.verifyCard(with: request, viewController: viewController) { tokenizedCard, error in
-      if let error = error {
-        result(FlutterError(code: "3ds_error", message: error.localizedDescription, details: nil))
+      if let nsError = error as NSError? {
+        if nsError.domain == BTErrorDomain,
+           nsError.code == BTPaymentFlowDriverErrorType.canceled.rawValue {
+          result(FlutterError(code: "3ds_canceled", message: "User canceled 3DS authentication", details: nil))
+        } else {
+          result(FlutterError(code: "3ds_error", message: nsError.localizedDescription, details: nil))
+        }
       } else {
         result(tokenizedCard?.nonce)
       }
@@ -105,8 +134,15 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
 
     let collector = BTDataCollector(apiClient: apiClient)
-    collector.collectDeviceData { deviceData, _ in
-      result(deviceData)
+    let forCard = args["forCard"] as? Bool ?? false
+    if forCard {
+      collector.collectCardFraudData { deviceData, _ in
+        result(deviceData)
+      }
+    } else {
+      collector.collectDeviceData { deviceData, _ in
+        result(deviceData)
+      }
     }
   }
 
@@ -120,7 +156,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       let countryCode = args["countryCode"] as? String,
       let currencyCode = args["currencyCode"] as? String,
       let amount = args["amount"] as? String,
-      let viewController = UIApplication.shared.keyWindow?.rootViewController
+      let viewController = rootViewController()
     else {
       result(FlutterError(code: "arg_error", message: "Missing parameters", details: nil))
       return
@@ -156,6 +192,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
 class ApplePayDelegate: NSObject, PKPaymentAuthorizationViewControllerDelegate {
   let client: BTApplePayClient
   let completion: FlutterResult
+  private var didComplete = false
 
   init(client: BTApplePayClient, completion: @escaping FlutterResult) {
     self.client = client
@@ -171,10 +208,15 @@ class ApplePayDelegate: NSObject, PKPaymentAuthorizationViewControllerDelegate {
         completionHandler(PKPaymentAuthorizationResult(status: .success, errors: nil))
         self.completion(nonce?.nonce)
       }
+      self.didComplete = true
     }
   }
 
   func paymentAuthorizationViewControllerDidFinish(_ controller: PKPaymentAuthorizationViewController) {
-    controller.dismiss(animated: true, completion: nil)
+    controller.dismiss(animated: true) {
+      if !self.didComplete {
+        self.completion(FlutterError(code: "apple_pay_canceled", message: "User canceled Apple Pay", details: nil))
+      }
+    }
   }
 }
