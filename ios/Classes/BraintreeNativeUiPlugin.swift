@@ -1,10 +1,14 @@
 import Flutter
 import UIKit
+#if canImport(BraintreeCore)
 import BraintreeCore
 import BraintreeCard
 import BraintreeThreeDSecure
 import BraintreeDataCollector
 import BraintreeApplePay
+#else
+import Braintree
+#endif
 import PassKit
 
 public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
