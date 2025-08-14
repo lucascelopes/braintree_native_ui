@@ -1,3 +1,6 @@
+## 0.2.5
+- Correção no Braintree iOS.
+
 ## 0.2.1
 - Correções IOS 13+.
 
