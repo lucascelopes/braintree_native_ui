@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'braintree_native_ui'
-  s.version          = '0.1.0'
+  s.version          = '0.2.1'
   s.summary          = 'Braintree SDK integration with custom UI and 3DS2.'
   s.description      = <<-DESC
 Tokenize cards, perform 3D Secure verification and collect device data using
@@ -14,18 +14,21 @@ the official Braintree iOS SDK without relying on Drop-in UI.
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'braintree_native_ui contributors' => 'support@example.com' }
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/**/*'
-  s.dependency 'Flutter'
-  s.platform = :ios, '12.0'
+  s.source_files     = 'Classes/**/*'
+  s.public_header_files = 'Classes/**/*.h'
+  s.dependency       'Flutter'
+  s.platform         = :ios, '14.0'
+  s.swift_version    = '5.0'
 
-  # Flutter.framework does not contain a i386 slice.
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
-  s.swift_version = '5.0'
+  s.dependency 'Braintree/Core',          '~> 6.36'
+  s.dependency 'Braintree/Card',          '~> 6.36'
+  s.dependency 'Braintree/ThreeDSecure',  '~> 6.36'
+  s.dependency 'Braintree/DataCollector', '~> 6.36'
+  s.dependency 'Braintree/ApplePay',      '~> 6.36'
 
-s.dependency 'Braintree/Card'
-s.dependency 'Braintree/ThreeDSecure'
-s.dependency 'Braintree/DataCollector'
-s.dependency 'Braintree/ApplePay'
+  s.static_framework = true
+  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
+  s.ios.vendored_frameworks = []
 
 
   # If your plugin requires a privacy manifest, for example if it uses any
