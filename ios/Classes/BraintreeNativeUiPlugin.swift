@@ -2,9 +2,25 @@ import Flutter
 import UIKit
 #if canImport(BraintreeCore)
 import BraintreeCore
+#else
+import Braintree
+#endif
+#if canImport(BraintreeCard)
 import BraintreeCard
+#else
+import Braintree
+#endif
+#if canImport(BraintreeThreeDSecure)
 import BraintreeThreeDSecure
+#else
+import Braintree
+#endif
+#if canImport(BraintreeDataCollector)
 import BraintreeDataCollector
+#else
+import Braintree
+#endif
+#if canImport(BraintreeApplePay)
 import BraintreeApplePay
 #else
 import Braintree

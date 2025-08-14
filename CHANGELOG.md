@@ -1,3 +1,7 @@
+## 0.2.2
+- Ajuste de imports condicionais para compatibilidade com CocoaPods e SPM.
+- Adicionada validação do Podspec na pipeline de CI.
+
 ## 0.2.1
 - Correções IOS 13+.
 

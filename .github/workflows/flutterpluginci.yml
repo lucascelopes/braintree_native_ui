@@ -68,3 +68,13 @@ jobs:
       # Útil para garantir que o package passa nas checagens de publicação
       - name: Dry-run de publicação no Pub
         run: dart pub publish --dry-run
+
+  lint_podspec:
+    name: Lint Podspec (macOS)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate podspec
+        run: pod lib lint ios/braintree_native_ui.podspec --allow-warnings
