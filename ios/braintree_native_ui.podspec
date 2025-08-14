@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'braintree_native_ui'
-  s.version          = '0.2.2'
+  s.version          = '0.3.0'
   s.summary          = 'Braintree SDK integration with custom UI and 3DS2.'
   s.description      = <<-DESC
 Tokenize cards, perform 3D Secure verification and collect device data using
