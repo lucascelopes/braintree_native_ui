@@ -90,13 +90,13 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
   }
 
+  // Performs a 3D Secure 2 verification using BTThreeDSecureClient.
   private func threeDSecure(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
       let args = call.arguments as? [String: Any],
       let authorization = args["authorization"] as? String,
       let nonce = args["nonce"] as? String,
-      let amount = args["amount"] as? String,
-      let viewController = rootViewController()
+      let amount = args["amount"] as? String
     else {
       result(FlutterError(code: "arg_error", message: "Missing parameters", details: nil))
       return
@@ -107,6 +107,8 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       return
     }
 
+    // BTThreeDSecureClient handles the entire 3DS2 flow internally.
+    let threeDSecureClient = BTThreeDSecureClient(apiClient: apiClient)
     let request = BTThreeDSecureRequest()
     request.nonce = nonce
     request.amount = NSDecimalNumber(string: amount)
@@ -124,21 +126,18 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       request.billingAddress = address
     }
 
-    let driver = BTThreeDSecureDriver(apiClient: apiClient, delegate: nil)
-    driver.verifyCard(with: request, viewController: viewController) { tokenizedCard, error in
-      if let nsError = error as NSError? {
-        if nsError.domain == BTErrorDomain,
-           nsError.code == BTPaymentFlowDriverErrorType.canceled.rawValue {
-          result(FlutterError(code: "3ds_canceled", message: "User canceled 3DS authentication", details: nil))
-        } else {
-          result(FlutterError(code: "3ds_error", message: nsError.localizedDescription, details: nil))
-        }
+    threeDSecureClient.startPaymentFlow(request) { result3DS, error in
+      if let error = error as? BTThreeDSecureError, error == .canceled {
+        result(FlutterError(code: "3ds_canceled", message: "User canceled 3DS authentication", details: nil))
+      } else if let error = error {
+        result(FlutterError(code: "3ds_error", message: (error as NSError).localizedDescription, details: nil))
       } else {
-        result(tokenizedCard?.nonce)
+        result(result3DS?.tokenizedCard?.nonce)
       }
     }
   }
 
+  // Collects device data for fraud prevention.
   private func collectDeviceData(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
       let args = call.arguments as? [String: Any],
@@ -154,13 +153,11 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
 
     let collector = BTDataCollector(apiClient: apiClient)
-    let forCard = args["forCard"] as? Bool ?? false
-    if forCard {
-      collector.collectCardFraudData { deviceData, _ in
-        result(deviceData)
-      }
-    } else {
-      collector.collectDeviceData { deviceData, _ in
+    // collectDeviceData now covers both card and PayPal flows in v6.
+    collector.collectDeviceData { deviceData, error in
+      if let error = error {
+        result(FlutterError(code: "data_error", message: error.localizedDescription, details: nil))
+      } else {
         result(deviceData)
       }
     }
