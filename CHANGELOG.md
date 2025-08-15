@@ -1,5 +1,5 @@
-## 0.3.1
-- Correções nos imports Braintree/Core Android.
+## 0.3.2
+- Correções nos imports Braintree/Apple Pay.
 
 ## 0.3.1
 - Correções nos imports Braintree/Core.
