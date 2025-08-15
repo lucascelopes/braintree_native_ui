@@ -1,7 +1,7 @@
 import Flutter
 import UIKit
 
-// CocoaPods => umbrella "Braintree"; SPM/Carthage => módulos separados.
+// CocoaPods => umbrella "Braintree"; SPM => módulos separados.
 #if canImport(BraintreeCore)
 import BraintreeCore
 #else
@@ -35,6 +35,7 @@ import Braintree
 import PassKit
 
 public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
+
   public static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(name: "braintree_native_ui", binaryMessenger: registrar.messenger())
     let instance = BraintreeNativeUiPlugin()
@@ -45,14 +46,19 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     switch call.method {
     case "getPlatformVersion":
       result("iOS " + UIDevice.current.systemVersion)
+
     case "tokenizeCard":
       tokenize(call: call, result: result)
+
     case "performThreeDSecure":
       threeDSecure(call: call, result: result)
+
     case "collectDeviceData":
       collectDeviceData(call: call, result: result)
+
     case "requestApplePayPayment":
       applePay(call: call, result: result)
+
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -75,7 +81,16 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     FlutterError(code: domain, message: message, details: ["code": code])
   }
 
-  // MARK: - Tokenize Card (v6 canônico: BTCardClient.tokenize(_:))
+  /// Cria o BTAPIClient obrigatório na v6 (tokenization key ou client token)
+  private func makeAPIClient(_ authorization: String) throws -> BTAPIClient {
+    if let api = BTAPIClient(authorization: authorization) {
+      return api
+    }
+    throw NSError(domain: "braintree_native_ui", code: -10,
+                  userInfo: [NSLocalizedDescriptionKey: "Falha ao inicializar BTAPIClient"])
+  }
+
+  // MARK: - Tokenize Card (v6: BTCardClient(apiClient:).tokenize(_:))
 
   private func tokenize(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
@@ -83,30 +98,40 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       let authorization = args["authorization"] as? String,
       let number = args["number"] as? String,
       let expMonth = args["expirationMonth"] as? String,
-      let expYear = args["expirationYear"] as? String
+      let expYear  = args["expirationYear"] as? String
     else {
       result(asFlutterError("arg_error", -1, "Missing card parameters"))
       return
     }
     let cvv = args["cvv"] as? String
-    let cardClient = BTCardClient(authorization: authorization)
-    let card = BTCard(number: number, expirationMonth: expMonth, expirationYear: expYear, cvv: cvv)
 
-    // v6: assinatura correta é tokenize(_ card: BTCard, completion: ...)
-    cardClient.tokenize(card) { tokenizedCard, error in
-      if let error = error as NSError? {
-        result(self.asFlutterError("tokenize_error", error.code, error.localizedDescription))
-        return
+    do {
+      let apiClient = try makeAPIClient(authorization)
+      let cardClient = BTCardClient(apiClient: apiClient)
+
+      let card = BTCard()
+      card.number = number
+      card.expirationMonth = expMonth
+      card.expirationYear = expYear
+      card.cvv = cvv
+
+      cardClient.tokenize(card) { tokenizedCard, error in
+        if let error = error as NSError? {
+          result(self.asFlutterError("tokenize_error", error.code, error.localizedDescription))
+          return
+        }
+        guard let nonce = tokenizedCard?.nonce else {
+          result(self.asFlutterError("tokenize_error", -3, "Tokenization returned no nonce"))
+          return
+        }
+        result(nonce)
       }
-      guard let nonce = tokenizedCard?.nonce else {
-        result(self.asFlutterError("tokenize_error", -3, "Tokenization returned no nonce"))
-        return
-      }
-      result(nonce)
+    } catch {
+      result(asFlutterError("client_error", -2, error.localizedDescription))
     }
   }
 
-  // MARK: - 3D Secure 2 (v6: BTThreeDSecureClient)
+  // MARK: - 3D Secure 2 (v6: BTThreeDSecureClient(apiClient:).startPaymentFlow)
 
   private func threeDSecure(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
@@ -118,45 +143,53 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       result(asFlutterError("arg_error", -1, "Missing parameters"))
       return
     }
-    let threeDSecureClient = BTThreeDSecureClient(authorization: authorization)
-    let request = BTThreeDSecureRequest()
-    request.nonce = nonce
-    request.amount = NSDecimalNumber(string: amount)
 
-    if let email = args["email"] as? String {
-      request.email = email
-    }
-    if let billing = args["billingAddress"] as? [String: String] {
-      let address = BTThreeDSecurePostalAddress()
-      address.streetAddress = billing["streetAddress"]
-      address.extendedAddress = billing["extendedAddress"]
-      address.locality = billing["locality"]
-      address.region = billing["region"]
-      address.postalCode = billing["postalCode"]
-      address.countryCodeAlpha2 = billing["countryCodeAlpha2"]
-      request.billingAddress = address
-    }
+    do {
+      let apiClient = try makeAPIClient(authorization)
+      let threeDSClient = BTThreeDSecureClient(apiClient: apiClient)
 
-    threeDSecureClient.startPaymentFlow(request) { result3DS, error in
-      if let error = error as NSError? {
-        let text = error.localizedDescription.lowercased()
-        let code = error.code
-        if text.contains("cancel") || text.contains("canceled") || text.contains("cancelled") {
-          result(self.asFlutterError("3ds_canceled", code, error.localizedDescription))
-        } else {
-          result(self.asFlutterError("3ds_error", code, error.localizedDescription))
+      let request = BTThreeDSecureRequest()
+      request.nonce = nonce
+      request.amount = NSDecimalNumber(string: amount)
+      request.delegate = self // v6 requer implementar onLookupComplete e chamar next()
+
+      if let email = args["email"] as? String {
+        request.email = email
+      }
+      if let billing = args["billingAddress"] as? [String: String] {
+        let address = BTThreeDSecurePostalAddress()
+        address.streetAddress = billing["streetAddress"]
+        address.extendedAddress = billing["extendedAddress"]
+        address.locality = billing["locality"]
+        address.region = billing["region"]
+        address.postalCode = billing["postalCode"]
+        address.countryCodeAlpha2 = billing["countryCodeAlpha2"]
+        request.billingAddress = address
+      }
+
+      threeDSClient.startPaymentFlow(request) { result3DS, error in
+        if let error = error as NSError? {
+          let text = error.localizedDescription.lowercased()
+          let code = error.code
+          if text.contains("cancel") || text.contains("canceled") || text.contains("cancelled") {
+            result(self.asFlutterError("3ds_canceled", code, error.localizedDescription))
+          } else {
+            result(self.asFlutterError("3ds_error", code, error.localizedDescription))
+          }
+          return
         }
-        return
+        guard let nonce = result3DS?.tokenizedCard?.nonce else {
+          result(self.asFlutterError("3ds_error", -3, "3DS finished without tokenized card"))
+          return
+        }
+        result(nonce)
       }
-      guard let nonce = result3DS?.tokenizedCard?.nonce else {
-        result(self.asFlutterError("3ds_error", -3, "3DS finished without tokenized card"))
-        return
-      }
-      result(nonce)
+    } catch {
+      result(asFlutterError("client_error", -2, error.localizedDescription))
     }
   }
 
-  // MARK: - Device Data (fraude) v6
+  // MARK: - Device Data (fraude) v6: BTDataCollector(apiClient:).collectDeviceData
 
   private func collectDeviceData(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
@@ -167,17 +200,22 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       return
     }
 
-    let collector = BTDataCollector(authorization: authorization)
-    collector.collectDeviceData { deviceData, error in
-      if let error = error as NSError? {
-        result(self.asFlutterError("data_error", error.code, error.localizedDescription))
-      } else {
-        result(deviceData ?? NSNull())
+    do {
+      let apiClient = try makeAPIClient(authorization)
+      let collector = BTDataCollector(apiClient: apiClient)
+      collector.collectDeviceData { deviceData, error in
+        if let error = error as NSError? {
+          result(self.asFlutterError("data_error", error.code, error.localizedDescription))
+        } else {
+          result(deviceData ?? NSNull())
+        }
       }
+    } catch {
+      result(asFlutterError("client_error", -2, error.localizedDescription))
     }
   }
 
-  // MARK: - Apple Pay
+  // MARK: - Apple Pay (v6: BTApplePayClient(apiClient:).paymentRequest + tokenize(_:))
 
   private var applePayDelegate: ApplePayDelegate?
 
@@ -194,25 +232,54 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       result(asFlutterError("arg_error", -1, "Missing parameters"))
       return
     }
-    let applePayClient = BTApplePayClient(authorization: authorization)
-    let paymentRequest = PKPaymentRequest()
-    paymentRequest.merchantIdentifier = merchantId
-    paymentRequest.countryCode = countryCode
-    paymentRequest.currencyCode = currencyCode
-    paymentRequest.merchantCapabilities = .capability3DS
-    paymentRequest.supportedNetworks = [.visa, .masterCard, .amex, .discover]
-    paymentRequest.paymentSummaryItems = [
-      PKPaymentSummaryItem(label: "Total", amount: NSDecimalNumber(string: amount))
-    ]
 
-    guard let controller = PKPaymentAuthorizationViewController(paymentRequest: paymentRequest) else {
-      result(asFlutterError("apple_pay_unavailable", -1, "Apple Pay not available"))
-      return
+    do {
+      let apiClient = try makeAPIClient(authorization)
+      let applePayClient = BTApplePayClient(apiClient: apiClient)
+
+      // Helper oficial preenche country/currency/merchantId/supportedNetworks com base na configuração do gateway.
+      // Depois ajustamos campos específicos do seu fluxo (items, capabilities etc.). :contentReference[oaicite:1]{index=1}
+      applePayClient.paymentRequest { paymentRequest, error in
+        if let error = error {
+          result(self.asFlutterError("apple_pay_error", -1, error.localizedDescription))
+          return
+        }
+        guard var request = paymentRequest else {
+          result(self.asFlutterError("apple_pay_error", -2, "Unable to create PKPaymentRequest"))
+          return
+        }
+
+        // Garante os campos esperados pelo seu app/conta:
+        request.merchantIdentifier = merchantId
+        request.countryCode = countryCode
+        request.currencyCode = currencyCode
+        request.merchantCapabilities = .capability3DS
+        request.paymentSummaryItems = [
+          PKPaymentSummaryItem(label: "Total", amount: NSDecimalNumber(string: amount))
+        ]
+
+        guard let controller = PKPaymentAuthorizationViewController(paymentRequest: request) else {
+          result(self.asFlutterError("apple_pay_unavailable", -3, "Apple Pay not available"))
+          return
+        }
+
+        self.applePayDelegate = ApplePayDelegate(client: applePayClient, completion: result)
+        controller.delegate = self.applePayDelegate
+        viewController.present(controller, animated: true, completion: nil)
+      }
+    } catch {
+      result(asFlutterError("client_error", -2, error.localizedDescription))
     }
+  }
+}
 
-    applePayDelegate = ApplePayDelegate(client: applePayClient, completion: result)
-    controller.delegate = applePayDelegate
-    viewController.present(controller, animated: true, completion: nil)
+// MARK: - 3DS Delegate: obrigatório chamar next() no lookup (v6)
+extension BraintreeNativeUiPlugin: BTThreeDSecureRequestDelegate {
+  public func onLookupComplete(_ request: BTThreeDSecureRequest,
+                               result: BTThreeDSecureResult,
+                               next: @escaping () -> Void) {
+    // Pode inspecionar 'result.lookup' aqui se quiser customizar UI antes do challenge.
+    next()
   }
 }
 
@@ -233,6 +300,7 @@ class ApplePayDelegate: NSObject, PKPaymentAuthorizationViewControllerDelegate {
     didAuthorizePayment payment: PKPayment,
     handler completionHandler: @escaping (PKPaymentAuthorizationResult) -> Void
   ) {
+    // v6: método renomeado — use tokenize(_:), não tokenizeApplePay(_:) :contentReference[oaicite:2]{index=2}
     client.tokenize(payment) { nonce, error in
       if let error = error {
         completionHandler(PKPaymentAuthorizationResult(status: .failure, errors: [error]))
@@ -248,7 +316,6 @@ class ApplePayDelegate: NSObject, PKPaymentAuthorizationViewControllerDelegate {
   func paymentAuthorizationViewControllerDidFinish(_ controller: PKPaymentAuthorizationViewController) {
     controller.dismiss(animated: true) {
       if !self.didComplete {
-        // <<< A LINHA QUE DAVA ERRO AQUI TINHA UM PARÊNTESE EXTRA >>>
         self.completion(FlutterError(code: "apple_pay_canceled", message: "User canceled Apple Pay", details: nil))
       }
     }
