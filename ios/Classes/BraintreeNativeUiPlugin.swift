@@ -1,8 +1,7 @@
 import Flutter
 import UIKit
 
-// CocoaPods fornece "Braintree" (umbrella). SPM/Carthage expõem módulos separados.
-// Estes imports condicionais te dão compatibilidade com ambos.
+// CocoaPods => umbrella "Braintree"; SPM/Carthage => módulos separados.
 #if canImport(BraintreeCore)
 import BraintreeCore
 #else
@@ -73,10 +72,10 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
   }
 
   private func asFlutterError(_ domain: String, _ code: Int = -1, _ message: String) -> FlutterError {
-    return FlutterError(code: domain, message: message, details: ["code": code])
+    FlutterError(code: domain, message: message, details: ["code": code])
   }
 
-  // MARK: - Tokenize Card (v6)
+  // MARK: - Tokenize Card (compat: v6 e exportações antigas)
 
   private func tokenize(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
@@ -99,19 +98,35 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     let cardClient = BTCardClient(apiClient: apiClient)
     let card = BTCard(number: number, expirationMonth: expMonth, expirationYear: expYear, cvv: cvv)
 
-    // v6: o método é tokenizeCard(_:) — NÃO existe tokenize(...)
-    cardClient.tokenizeCard(card) { tokenizedCard, error in
-      if let error = error {
-        let ns = error as NSError
-        result(self.asFlutterError("tokenize_error", ns.code, ns.localizedDescription))
-        return
+    // Em alguns setups, a API visível é tokenize(_:) (antiga); em outros, tokenizeCard(_:) (v6).
+    // Priorize tokenize(_:) que costuma existir em ambos via bridging.
+    if cardClient.responds(to: Selector(("tokenizeCard:completion:"))) {
+      // Caso a binding exponha tokenizeCard(_:completion:)
+      // (proteção, não deve cair aqui na maioria dos Pods)
+      // swiftlint:disable force_cast
+      (cardClient as AnyObject).perform(Selector(("tokenizeCard:completion:")), with: card, with: { (tokenizedCard: Any?, error: Error?) in
+        self.handleTokenizeResult(tokenizedCard as AnyObject?, error, result)
+      } as @convention(block) (Any?, Error?) -> Void)
+      // swiftlint:enable force_cast
+    } else {
+      // Caminho padrão (tokenize(_:))
+      cardClient.tokenize(card) { tokenizedCard, error in
+        self.handleTokenizeResult(tokenizedCard, error, result)
       }
-      guard let nonce = tokenizedCard?.nonce else {
-        result(self.asFlutterError("tokenize_error", -3, "Tokenization returned no nonce"))
-        return
-      }
-      result(nonce)
     }
+  }
+
+  private func handleTokenizeResult(_ tokenizedCard: AnyObject?, _ error: Error?, _ result: @escaping FlutterResult) {
+    if let error = error as NSError? {
+      result(self.asFlutterError("tokenize_error", error.code, error.localizedDescription))
+      return
+    }
+    // tokenizedCard é BTCardNonce
+    if let nonceObj = tokenizedCard as? BTCardNonce {
+      result(nonceObj.nonce)
+      return
+    }
+    result(self.asFlutterError("tokenize_error", -3, "Tokenization returned no nonce"))
   }
 
   // MARK: - 3D Secure 2 (v6: BTThreeDSecureClient)
@@ -137,10 +152,10 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     request.nonce = nonce
     request.amount = NSDecimalNumber(string: amount)
 
-    if let email = args["email"] as? String {
+    if let email = (call.arguments as? [String: Any])?["email"] as? String {
       request.email = email
     }
-    if let billing = args["billingAddress"] as? [String: String] {
+    if let billing = (call.arguments as? [String: Any])?["billingAddress"] as? [String: String] {
       let address = BTThreeDSecurePostalAddress()
       address.streetAddress = billing["streetAddress"]
       address.extendedAddress = billing["extendedAddress"]
@@ -152,14 +167,13 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
 
     threeDSecureClient.startPaymentFlow(request) { result3DS, error in
-      if let error = error {
-        let ns = error as NSError
-        // Alguns integradores querem tratar "cancel" diferente:
-        let lowered = ns.localizedDescription.lowercased()
-        if lowered.contains("cancel") || lowered.contains("canceled") || lowered.contains("cancelled") {
-          result(self.asFlutterError("3ds_canceled", ns.code, ns.localizedDescription))
+      if let error = error as NSError? {
+        let text = error.localizedDescription.lowercased()
+        let code = error.code
+        if text.contains("cancel") || text.contains("canceled") || text.contains("cancelled") {
+          result(self.asFlutterError("3ds_canceled", code, error.localizedDescription))
         } else {
-          result(self.asFlutterError("3ds_error", ns.code, ns.localizedDescription))
+          result(self.asFlutterError("3ds_error", code, error.localizedDescription))
         }
         return
       }
@@ -188,11 +202,9 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
 
     let collector = BTDataCollector(apiClient: apiClient)
-    // v6: collectDeviceData cobre os casos de fraude (cartão/PayPal)
     collector.collectDeviceData { deviceData, error in
-      if let error = error {
-        let ns = error as NSError
-        result(self.asFlutterError("data_error", ns.code, ns.localizedDescription))
+      if let error = error as NSError? {
+        result(self.asFlutterError("data_error", error.code, error.localizedDescription))
       } else {
         result(deviceData ?? NSNull())
       }
