@@ -1,3 +1,9 @@
+## 0.3.1
+- Correções nos imports Braintree/Core Android.
+
+## 0.3.1
+- Correções nos imports Braintree/Core.
+
 ## 0.3.0
 - Ajuste de imports condicionais para compatibilidade com CocoaPods e SPM.
 - Adicionada validação do Podspec na pipeline de CI.
