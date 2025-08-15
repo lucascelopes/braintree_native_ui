@@ -89,13 +89,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       return
     }
     let cvv = args["cvv"] as? String
-
-    guard let apiClient = BTAPIClient(authorization: authorization) else {
-      result(asFlutterError("auth_error", -2, "Invalid authorization"))
-      return
-    }
-
-    let cardClient = BTCardClient(apiClient: apiClient)
+    let cardClient = BTCardClient(authorization: authorization)
     let card = BTCard(number: number, expirationMonth: expMonth, expirationYear: expYear, cvv: cvv)
 
     // v6: assinatura correta é tokenize(_ card: BTCard, completion: ...)
@@ -124,13 +118,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       result(asFlutterError("arg_error", -1, "Missing parameters"))
       return
     }
-
-    guard let apiClient = BTAPIClient(authorization: authorization) else {
-      result(asFlutterError("auth_error", -2, "Invalid authorization"))
-      return
-    }
-
-    let threeDSecureClient = BTThreeDSecureClient(apiClient: apiClient)
+    let threeDSecureClient = BTThreeDSecureClient(authorization: authorization)
     let request = BTThreeDSecureRequest()
     request.nonce = nonce
     request.amount = NSDecimalNumber(string: amount)
@@ -179,12 +167,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       return
     }
 
-    guard let apiClient = BTAPIClient(authorization: authorization) else {
-      result(asFlutterError("auth_error", -2, "Invalid authorization"))
-      return
-    }
-
-    let collector = BTDataCollector(apiClient: apiClient)
+    let collector = BTDataCollector(authorization: authorization)
     collector.collectDeviceData { deviceData, error in
       if let error = error as NSError? {
         result(self.asFlutterError("data_error", error.code, error.localizedDescription))
@@ -211,13 +194,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       result(asFlutterError("arg_error", -1, "Missing parameters"))
       return
     }
-
-    guard let apiClient = BTAPIClient(authorization: authorization) else {
-      result(asFlutterError("auth_error", -2, "Invalid authorization"))
-      return
-    }
-
-    let applePayClient = BTApplePayClient(apiClient: apiClient)
+    let applePayClient = BTApplePayClient(authorization: authorization)
     let paymentRequest = PKPaymentRequest()
     paymentRequest.merchantIdentifier = merchantId
     paymentRequest.countryCode = countryCode
@@ -271,7 +248,8 @@ class ApplePayDelegate: NSObject, PKPaymentAuthorizationViewControllerDelegate {
   func paymentAuthorizationViewControllerDidFinish(_ controller: PKPaymentAuthorizationViewController) {
     controller.dismiss(animated: true) {
       if !self.didComplete {
-        self.completion(FlutterError(code: "apple_pay_canceled", message: "User canceled Apple Pay", details: nil)))
+        // <<< A LINHA QUE DAVA ERRO AQUI TINHA UM PARÊNTESE EXTRA >>>
+        self.completion(FlutterError(code: "apple_pay_canceled", message: "User canceled Apple Pay", details: nil))
       }
     }
   }

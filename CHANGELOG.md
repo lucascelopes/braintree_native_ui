@@ -1,4 +1,4 @@
-## [0.3.4] - 2025-08-15
+## [0.3.7] - 2025-08-15
 ### Alterado
 - Atualizado código Swift para compatibilidade total com **Braintree iOS SDK v6.36**.
 - Substituído uso obsoleto de `tokenizeCard` por `tokenize(_:)` de `BTCardClient`.
