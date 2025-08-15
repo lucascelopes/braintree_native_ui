@@ -1,7 +1,6 @@
 import Flutter
 import UIKit
 
-// CocoaPods => umbrella "Braintree"; SPM/Carthage => módulos separados.
 #if canImport(BraintreeCore)
 import BraintreeCore
 #else
@@ -37,7 +36,6 @@ import PassKit
 public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
 
   // MARK: - Flutter bootstrap
-
   public static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(name: "braintree_native_ui", binaryMessenger: registrar.messenger())
     let instance = BraintreeNativeUiPlugin()
@@ -45,24 +43,18 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
   }
 
   // MARK: - Flutter bridge
-
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "getPlatformVersion":
       result("iOS " + UIDevice.current.systemVersion)
-
     case "tokenizeCard":
       tokenize(call: call, result: result)
-
     case "performThreeDSecure":
       threeDSecure(call: call, result: result)
-
     case "collectDeviceData":
       collectDeviceData(call: call, result: result)
-
     case "requestApplePayPayment":
       applePay(call: call, result: result)
-
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -86,7 +78,16 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     FlutterError(code: domain, message: message, details: ["code": code])
   }
 
-  // MARK: - Card: tokenização (v6: BTCardClient(apiClient:))
+  /// Cria BTAPIClient e já trata authorization inválido
+  private func apiClientOrFail(_ authorization: String, result: @escaping FlutterResult, context: String) -> BTAPIClient? {
+    guard let client = BTAPIClient(authorization: authorization) else {
+      result(self.asFlutterError("client_error", -2, "Authorization inválido (\(context)). Use clientToken ou tokenizationKey válidos."))
+      return nil
+    }
+    return client
+  }
+
+  // MARK: - Cartão: tokenização (v6: BTCardClient(apiClient:))
 
   private func tokenize(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
@@ -101,7 +102,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
     let cvv = args["cvv"] as? String
 
-    let apiClient = BTAPIClient(authorization: authorization)
+    guard let apiClient = apiClientOrFail(authorization, result: result, context: "tokenizeCard") else { return }
     let cardClient = BTCardClient(apiClient: apiClient)
 
     let card = BTCard()
@@ -138,16 +139,15 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       return
     }
 
-    let apiClient = BTAPIClient(authorization: authorization)
+    guard let apiClient = apiClientOrFail(authorization, result: result, context: "performThreeDSecure") else { return }
     let threeDSClient = BTThreeDSecureClient(apiClient: apiClient)
-    self.threeDSecureClient = threeDSClient // manter forte durante o flow
+    self.threeDSecureClient = threeDSClient // manter vivo durante o fluxo
 
     let request = BTThreeDSecureRequest()
-    // `amount` em v6 aceita numérico (docs exemplificam 10.00). Vamos converter a partir da string.
-    if let decimal = Decimal(string: amountStr) {
-      request.amount = decimal as NSDecimalNumber // compatível com as versões atuais do SDK
+    if let dec = Decimal(string: amountStr) {
+      request.amount = dec  // v6 aceita numérico (ver docs)
     } else {
-      request.amount = NSDecimalNumber(string: amountStr) // fallback
+      request.amount = 0
     }
     request.nonce = nonce
 
@@ -167,7 +167,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       request.billingAddress = address
     }
 
-    // Delegate correto na v6
+    // v6: delegado correto para onLookupComplete
     request.threeDSecureRequestDelegate = self
 
     threeDSClient.startPaymentFlow(request) { result3DS, error in
@@ -200,7 +200,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       return
     }
 
-    let apiClient = BTAPIClient(authorization: authorization)
+    guard let apiClient = apiClientOrFail(authorization, result: result, context: "collectDeviceData") else { return }
     let collector = BTDataCollector(apiClient: apiClient)
     collector.collectDeviceData { deviceData, error in
       if let error = error as NSError? {
@@ -211,7 +211,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  // MARK: - Apple Pay (manual PKPaymentRequest + tokenize)
+  // MARK: - Apple Pay (montagem manual do PKPaymentRequest + tokenize)
 
   private var applePayDelegate: ApplePayDelegate?
 
@@ -229,10 +229,9 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       return
     }
 
-    let apiClient = BTAPIClient(authorization: authorization)
+    guard let apiClient = apiClientOrFail(authorization, result: result, context: "requestApplePayPayment") else { return }
     let applePayClient = BTApplePayClient(apiClient: apiClient)
 
-    // Construímos manualmente o PKPaymentRequest (evita erro de 'no member paymentRequest')
     let paymentRequest = PKPaymentRequest()
     paymentRequest.merchantIdentifier = merchantId
     paymentRequest.countryCode = countryCode
@@ -254,20 +253,19 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
   }
 }
 
-// MARK: - 3DS Delegate (v6) — label correto: `lookupResult`
+// MARK: - 3DS Delegate (v6) — label certo: `lookupResult`
 extension BraintreeNativeUiPlugin: BTThreeDSecureRequestDelegate {
   public func onLookupComplete(
     _ request: BTThreeDSecureRequest,
     lookupResult result: BTThreeDSecureResult,
     next: @escaping () -> Void
   ) {
-    // Aqui você pode inspecionar 'result.lookup' e preparar UI, se quiser.
+    // Inspecione 'result.lookup' se quiser customizar UI antes do challenge.
     next()
   }
 }
 
 // MARK: - Apple Pay Delegate
-
 class ApplePayDelegate: NSObject, PKPaymentAuthorizationViewControllerDelegate {
   let client: BTApplePayClient
   let completion: FlutterResult
