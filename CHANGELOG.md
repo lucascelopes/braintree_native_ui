@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ## [0.3.4] - 2025-08-15
 ### Alterado
 - Atualizado código Swift para compatibilidade total com **Braintree iOS SDK v6.36**.
@@ -22,6 +23,8 @@
 - Checagem de argumentos em todos os métodos públicos para evitar crashes.
 - Comentários claros sobre cada fluxo (tokenização, 3DS, device data, Apple Pay).
 
+=======
+>>>>>>> 928d44cfe8f27d9d77c487c2ee3005445aeed656
 ## 0.3.2
 - Correções nos imports Braintree/Apple Pay.
 

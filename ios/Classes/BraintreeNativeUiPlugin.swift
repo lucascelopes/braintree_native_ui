@@ -271,7 +271,8 @@ class ApplePayDelegate: NSObject, PKPaymentAuthorizationViewControllerDelegate {
   func paymentAuthorizationViewControllerDidFinish(_ controller: PKPaymentAuthorizationViewController) {
     controller.dismiss(animated: true) {
       if !self.didComplete {
-        self.completion(FlutterError(code: "apple_pay_canceled", message: "User canceled Apple Pay", details: nil)))
+        // <<< A LINHA QUE DAVA ERRO AQUI TINHA UM PARÊNTESE EXTRA >>>
+        self.completion(FlutterError(code: "apple_pay_canceled", message: "User canceled Apple Pay", details: nil))
       }
     }
   }
