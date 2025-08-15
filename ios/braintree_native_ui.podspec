@@ -28,7 +28,7 @@ the official Braintree iOS SDK without relying on Drop-in UI.
 
   s.static_framework = true
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
-  s.ios.vendored_frameworks = []
+  s.frameworks = 'PassKit'
 
 
   # If your plugin requires a privacy manifest, for example if it uses any
