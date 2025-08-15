@@ -1,10 +1,37 @@
 import Flutter
 import UIKit
+
+// CocoaPods => umbrella "Braintree"; SPM/Carthage => módulos separados.
+#if canImport(BraintreeCore)
 import BraintreeCore
+#else
+import Braintree
+#endif
+
+#if canImport(BraintreeCard)
 import BraintreeCard
+#else
+import Braintree
+#endif
+
+#if canImport(BraintreeThreeDSecure)
 import BraintreeThreeDSecure
+#else
+import Braintree
+#endif
+
+#if canImport(BraintreeDataCollector)
 import BraintreeDataCollector
+#else
+import Braintree
+#endif
+
+#if canImport(BraintreeApplePay)
 import BraintreeApplePay
+#else
+import Braintree
+#endif
+
 import PassKit
 
 public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
@@ -31,6 +58,8 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
   }
 
+  // MARK: - Helpers
+
   private func rootViewController() -> UIViewController? {
     if #available(iOS 13.0, *) {
       return UIApplication.shared.connectedScenes
@@ -42,6 +71,12 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
   }
 
+  private func asFlutterError(_ domain: String, _ code: Int = -1, _ message: String) -> FlutterError {
+    FlutterError(code: domain, message: message, details: ["code": code])
+  }
+
+  // MARK: - Tokenize Card (v6 canônico: BTCardClient.tokenize(_:))
+
   private func tokenize(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
       let args = call.arguments as? [String: Any],
@@ -50,46 +85,56 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       let expMonth = args["expirationMonth"] as? String,
       let expYear = args["expirationYear"] as? String
     else {
-      result(FlutterError(code: "arg_error", message: "Missing card parameters", details: nil))
+      result(asFlutterError("arg_error", -1, "Missing card parameters"))
       return
     }
     let cvv = args["cvv"] as? String
 
     guard let apiClient = BTAPIClient(authorization: authorization) else {
-      result(FlutterError(code: "auth_error", message: "Invalid authorization", details: nil))
+      result(asFlutterError("auth_error", -2, "Invalid authorization"))
       return
     }
+
     let cardClient = BTCardClient(apiClient: apiClient)
     let card = BTCard(number: number, expirationMonth: expMonth, expirationYear: expYear, cvv: cvv)
+
+    // v6: assinatura correta é tokenize(_ card: BTCard, completion: ...)
     cardClient.tokenize(card) { tokenizedCard, error in
-      if let error = error {
-        result(FlutterError(code: "tokenize_error", message: error.localizedDescription, details: nil))
-      } else {
-        result(tokenizedCard?.nonce)
+      if let error = error as NSError? {
+        result(self.asFlutterError("tokenize_error", error.code, error.localizedDescription))
+        return
       }
+      guard let nonce = tokenizedCard?.nonce else {
+        result(self.asFlutterError("tokenize_error", -3, "Tokenization returned no nonce"))
+        return
+      }
+      result(nonce)
     }
   }
+
+  // MARK: - 3D Secure 2 (v6: BTThreeDSecureClient)
 
   private func threeDSecure(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
       let args = call.arguments as? [String: Any],
       let authorization = args["authorization"] as? String,
       let nonce = args["nonce"] as? String,
-      let amount = args["amount"] as? String,
-      let viewController = rootViewController()
+      let amount = args["amount"] as? String
     else {
-      result(FlutterError(code: "arg_error", message: "Missing parameters", details: nil))
+      result(asFlutterError("arg_error", -1, "Missing parameters"))
       return
     }
 
     guard let apiClient = BTAPIClient(authorization: authorization) else {
-      result(FlutterError(code: "auth_error", message: "Invalid authorization", details: nil))
+      result(asFlutterError("auth_error", -2, "Invalid authorization"))
       return
     }
 
+    let threeDSecureClient = BTThreeDSecureClient(apiClient: apiClient)
     let request = BTThreeDSecureRequest()
     request.nonce = nonce
     request.amount = NSDecimalNumber(string: amount)
+
     if let email = args["email"] as? String {
       request.email = email
     }
@@ -104,47 +149,52 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       request.billingAddress = address
     }
 
-    let driver = BTThreeDSecureDriver(apiClient: apiClient, delegate: nil)
-    driver.verifyCard(with: request, viewController: viewController) { tokenizedCard, error in
-      if let nsError = error as NSError? {
-        if nsError.domain == BTErrorDomain,
-           nsError.code == BTPaymentFlowDriverErrorType.canceled.rawValue {
-          result(FlutterError(code: "3ds_canceled", message: "User canceled 3DS authentication", details: nil))
+    threeDSecureClient.startPaymentFlow(request) { result3DS, error in
+      if let error = error as NSError? {
+        let text = error.localizedDescription.lowercased()
+        let code = error.code
+        if text.contains("cancel") || text.contains("canceled") || text.contains("cancelled") {
+          result(self.asFlutterError("3ds_canceled", code, error.localizedDescription))
         } else {
-          result(FlutterError(code: "3ds_error", message: nsError.localizedDescription, details: nil))
+          result(self.asFlutterError("3ds_error", code, error.localizedDescription))
         }
-      } else {
-        result(tokenizedCard?.nonce)
+        return
       }
+      guard let nonce = result3DS?.tokenizedCard?.nonce else {
+        result(self.asFlutterError("3ds_error", -3, "3DS finished without tokenized card"))
+        return
+      }
+      result(nonce)
     }
   }
+
+  // MARK: - Device Data (fraude) v6
 
   private func collectDeviceData(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
       let args = call.arguments as? [String: Any],
       let authorization = args["authorization"] as? String
     else {
-      result(FlutterError(code: "arg_error", message: "Missing authorization", details: nil))
+      result(asFlutterError("arg_error", -1, "Missing authorization"))
       return
     }
 
     guard let apiClient = BTAPIClient(authorization: authorization) else {
-      result(FlutterError(code: "auth_error", message: "Invalid authorization", details: nil))
+      result(asFlutterError("auth_error", -2, "Invalid authorization"))
       return
     }
 
     let collector = BTDataCollector(apiClient: apiClient)
-    let forCard = args["forCard"] as? Bool ?? false
-    if forCard {
-      collector.collectCardFraudData { deviceData, _ in
-        result(deviceData)
-      }
-    } else {
-      collector.collectDeviceData { deviceData, _ in
-        result(deviceData)
+    collector.collectDeviceData { deviceData, error in
+      if let error = error as NSError? {
+        result(self.asFlutterError("data_error", error.code, error.localizedDescription))
+      } else {
+        result(deviceData ?? NSNull())
       }
     }
   }
+
+  // MARK: - Apple Pay
 
   private var applePayDelegate: ApplePayDelegate?
 
@@ -158,12 +208,12 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       let amount = args["amount"] as? String,
       let viewController = rootViewController()
     else {
-      result(FlutterError(code: "arg_error", message: "Missing parameters", details: nil))
+      result(asFlutterError("arg_error", -1, "Missing parameters"))
       return
     }
 
     guard let apiClient = BTAPIClient(authorization: authorization) else {
-      result(FlutterError(code: "auth_error", message: "Invalid authorization", details: nil))
+      result(asFlutterError("auth_error", -2, "Invalid authorization"))
       return
     }
 
@@ -179,7 +229,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     ]
 
     guard let controller = PKPaymentAuthorizationViewController(paymentRequest: paymentRequest) else {
-      result(FlutterError(code: "apple_pay_unavailable", message: "Apple Pay not available", details: nil))
+      result(asFlutterError("apple_pay_unavailable", -1, "Apple Pay not available"))
       return
     }
 
@@ -188,6 +238,8 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     viewController.present(controller, animated: true, completion: nil)
   }
 }
+
+// MARK: - Apple Pay Delegate
 
 class ApplePayDelegate: NSObject, PKPaymentAuthorizationViewControllerDelegate {
   let client: BTApplePayClient
@@ -199,7 +251,11 @@ class ApplePayDelegate: NSObject, PKPaymentAuthorizationViewControllerDelegate {
     self.completion = completion
   }
 
-  func paymentAuthorizationViewController(_ controller: PKPaymentAuthorizationViewController, didAuthorizePayment payment: PKPayment, handler completionHandler: @escaping (PKPaymentAuthorizationResult) -> Void) {
+  func paymentAuthorizationViewController(
+    _ controller: PKPaymentAuthorizationViewController,
+    didAuthorizePayment payment: PKPayment,
+    handler completionHandler: @escaping (PKPaymentAuthorizationResult) -> Void
+  ) {
     client.tokenize(payment) { nonce, error in
       if let error = error {
         completionHandler(PKPaymentAuthorizationResult(status: .failure, errors: [error]))
@@ -215,7 +271,7 @@ class ApplePayDelegate: NSObject, PKPaymentAuthorizationViewControllerDelegate {
   func paymentAuthorizationViewControllerDidFinish(_ controller: PKPaymentAuthorizationViewController) {
     controller.dismiss(animated: true) {
       if !self.didComplete {
-        self.completion(FlutterError(code: "apple_pay_canceled", message: "User canceled Apple Pay", details: nil))
+        self.completion(FlutterError(code: "apple_pay_canceled", message: "User canceled Apple Pay", details: nil)))
       }
     }
   }

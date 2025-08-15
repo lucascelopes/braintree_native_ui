@@ -20,7 +20,7 @@ Adicione ao seu `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  braintree_native_ui: ^0.2.5
+  braintree_native_ui: ^0.2.0
 ```
 
 No iOS execute `pod install` após atualizar as dependências.
