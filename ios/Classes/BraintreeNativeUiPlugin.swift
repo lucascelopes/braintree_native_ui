@@ -78,7 +78,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     FlutterError(code: domain, message: message, details: ["code": code])
   }
 
-  /// Cria BTAPIClient e já trata authorization inválido
+  /// Cria BTAPIClient e já falha com mensagem clara se a authorization for inválida.
   private func apiClientOrFail(_ authorization: String, result: @escaping FlutterResult, context: String) -> BTAPIClient? {
     guard let client = BTAPIClient(authorization: authorization) else {
       result(self.asFlutterError("client_error", -2, "Authorization inválido (\(context)). Use clientToken ou tokenizationKey válidos."))
@@ -87,7 +87,31 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     return client
   }
 
-  // MARK: - Cartão: tokenização (v6: BTCardClient(apiClient:))
+  /// Converte String -> NSDecimalNumber, aceitando '10.00' e '10,00'.
+  private func parseAmount(_ raw: String) -> NSDecimalNumber? {
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return nil }
+
+    // 1) Tenta POSIX (ponto como separador)
+    let posix = NSDecimalNumber(string: trimmed, locale: Locale(identifier: "en_US_POSIX"))
+    if posix != .notANumber { return posix }
+
+    // 2) Troca vírgula por ponto (comum em pt-BR)
+    let swapped = trimmed.replacingOccurrences(of: ",", with: ".")
+    let posix2 = NSDecimalNumber(string: swapped, locale: Locale(identifier: "en_US_POSIX"))
+    if posix2 != .notANumber { return posix2 }
+
+    // 3) Tenta NumberFormatter na locale atual
+    let f = NumberFormatter()
+    f.locale = Locale.current
+    f.numberStyle = .decimal
+    if let n = f.number(from: trimmed) {
+      return NSDecimalNumber(decimal: n.decimalValue)
+    }
+    return nil
+  }
+
+  // MARK: - Cartão: tokenização (v6: BTCardClient(apiClient:) + tokenize)
 
   private func tokenize(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
@@ -124,7 +148,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  // MARK: - 3D Secure 2 (v6: BTThreeDSecureClient + delegate)
+  // MARK: - 3D Secure 2 (v6)
 
   private var threeDSecureClient: BTThreeDSecureClient?
 
@@ -144,11 +168,12 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     self.threeDSecureClient = threeDSClient // manter vivo durante o fluxo
 
     let request = BTThreeDSecureRequest()
-    if let dec = Decimal(string: amountStr) {
-      request.amount = dec  // v6 aceita numérico (ver docs)
-    } else {
-      request.amount = 0
+
+    guard let amountNumber = parseAmount(amountStr), amountNumber != .notANumber else {
+      result(self.asFlutterError("arg_error", -1, "Invalid amount: \(amountStr)"))
+      return
     }
+    request.amount = amountNumber // <- NSDecimalNumber (tipo exigido na v6)
     request.nonce = nonce
 
     if let email = args["email"] as? String {
@@ -167,7 +192,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
       request.billingAddress = address
     }
 
-    // v6: delegado correto para onLookupComplete
+    // Delegate correto (v6): threeDSecureRequestDelegate
     request.threeDSecureRequestDelegate = self
 
     threeDSClient.startPaymentFlow(request) { result3DS, error in
@@ -189,7 +214,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  // MARK: - Device Data (Fraude) v6
+  // MARK: - Device Data (Fraude)
 
   private func collectDeviceData(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard
@@ -211,7 +236,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  // MARK: - Apple Pay (montagem manual do PKPaymentRequest + tokenize)
+  // MARK: - Apple Pay
 
   private var applePayDelegate: ApplePayDelegate?
 
@@ -239,7 +264,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     paymentRequest.merchantCapabilities = PKMerchantCapability.capability3DS
     paymentRequest.supportedNetworks = [.visa, .masterCard, .amex, .discover]
     paymentRequest.paymentSummaryItems = [
-      PKPaymentSummaryItem(label: "Total", amount: NSDecimalNumber(string: amount))
+      PKPaymentSummaryItem(label: "Total", amount: NSDecimalNumber(string: amount, locale: Locale(identifier: "en_US_POSIX")))
     ]
 
     guard let controller = PKPaymentAuthorizationViewController(paymentRequest: paymentRequest) else {
@@ -253,14 +278,14 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
   }
 }
 
-// MARK: - 3DS Delegate (v6) — label certo: `lookupResult`
+// MARK: - 3DS Delegate (v6): assinatura com `lookupResult`
 extension BraintreeNativeUiPlugin: BTThreeDSecureRequestDelegate {
   public func onLookupComplete(
     _ request: BTThreeDSecureRequest,
     lookupResult result: BTThreeDSecureResult,
     next: @escaping () -> Void
   ) {
-    // Inspecione 'result.lookup' se quiser customizar UI antes do challenge.
+    // opcional: inspecione result.lookup e personalize a UI
     next()
   }
 }
