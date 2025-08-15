@@ -58,7 +58,7 @@ public class BraintreeNativeUiPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  // MARK: - Helper
+  // MARK: - Helpers
 
   private func rootViewController() -> UIViewController? {
     if #available(iOS 13.0, *) {
