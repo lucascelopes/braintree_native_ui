@@ -20,11 +20,11 @@ the official Braintree iOS SDK without relying on Drop-in UI.
   s.platform         = :ios, '14.0'
   s.swift_version    = '5.0'
 
-  s.dependency 'Braintree/Core',          '~> 6.36'
-  s.dependency 'Braintree/Card',          '~> 6.36'
-  s.dependency 'Braintree/ThreeDSecure',  '~> 6.36'
-  s.dependency 'Braintree/DataCollector', '~> 6.36'
-  s.dependency 'Braintree/ApplePay',      '~> 6.36'
+  s.dependency 'Braintree/Core',          '~> 7.0'
+  s.dependency 'Braintree/Card',          '~> 7.0'
+  s.dependency 'Braintree/ThreeDSecure',  '~> 7.0'
+  s.dependency 'Braintree/DataCollector', '~> 7.0'
+  s.dependency 'Braintree/ApplePay',      '~> 7.0'
 
   s.static_framework = true
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
