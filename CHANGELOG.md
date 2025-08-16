@@ -1,3 +1,7 @@
+## [0.4.0] - 2025-08-16
+### Corrigido
+- Correções técnicas e melhorias gerais.
+
 ## [0.3.7] - 2025-08-15
 ### Alterado
 - Atualizado código Swift para compatibilidade total com **Braintree iOS SDK v6.36**.
